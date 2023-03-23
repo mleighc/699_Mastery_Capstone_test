@@ -11,6 +11,9 @@
 
 {% block page_content %}
 <h1 class="cap">Two Forms</h1>
+{% if message %}
+{{ message }}
+{% endif %}
 {% if yournum %}
 <h2>Your number is {{yournum}} and the result is {{result}}.</h2>
 {% endif %}
