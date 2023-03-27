@@ -6,3 +6,6 @@ https://deta.space/docs/en/introduction/start
 
 #SQLAlchemy/SQLite Setup
 https://fastapi.tiangolo.com/tutorial/sql-databases/
+
+#Fast API web starter
+https://levelup.gitconnected.com/building-a-website-starter-with-fastapi-92d077092864

@@ -132,6 +132,6 @@ dmypy.json
 .DS_Store
 
 ##Secrets
-./secrets.txt
+secrets.txt
 
 .space
