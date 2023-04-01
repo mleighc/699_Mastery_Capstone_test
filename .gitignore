@@ -134,4 +134,5 @@ dmypy.json
 ##Secrets
 secrets.txt
 
+#Space
 .space
