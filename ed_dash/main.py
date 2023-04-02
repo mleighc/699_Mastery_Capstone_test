@@ -1,35 +1,84 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status, HTTPException, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-
 from frontend.app.library.helpers import openfile
-from frontend.app.viz.iris_plot import *
-
-from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import JSONResponse
-from backend.sql_app import models
-from backend.sql_app.db import get_db, engine
-import backend.sql_app.models as models
-import backend.sql_app.schemas as schemas
-from backend.sql_app.repositories import ItemRepo, StoreRepo
 from sqlalchemy.orm import Session
-import uvicorn
-from typing import List, Optional
-from fastapi.encoders import jsonable_encoder
+
+import backend.crud as iris_crud
+import backend.schemas as iris_schemas
+import backend.models as iris_models
+
+from backend.database import SessionLocal, engine
+
+from bokeh.plotting import figure
+from bokeh.embed import components
 
 
 app = FastAPI(
-    title="Sample FastAPI Application",
-    description="Sample FastAPI Application",
+    title="Dashboard Application",
+    description="SI 699 Capstone Dashboard Application",
     version="1.0.0",
 )
 
+############################################
+############TEST SQLite DB##################
+# Initialize
+iris_models.Base.metadata.create_all(bind=engine)
+
+
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    except:
+        db.close()
+
+
+@app.post(
+    "/api/v1/iris/",
+    response_model=iris_schemas.Iris,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_iris(data: iris_schemas.Iris):
+    """TODO"""
+
+    return await iris_crud.create_iris(data)
+
+
+@app.delete("/api/v1/iris/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_iris(id: int):
+    """Delete resource. No response is provided."""
+
+    await iris_crud.delete_iris(id)
+
+
+@app.get("/")
+async def read_root() -> str:
+    """TODO"""
+
+    return "This is the iris home page."
+
+
+@app.get("/api/v1/iris/{id}", response_model=iris_schemas.Iris)
+async def read_iris(id: int):
+    """TODO"""
+
+    # TODO Handle query strings
+    return await iris_crud.read_iris(id)
+
+
+#############TEST SQLite END################
+############################################
+
+
+##############################################
+#########FRONTEND PAGES START#################
 templates = Jinja2Templates(directory="./frontend/templates")
 app.mount("/static", StaticFiles(directory="./frontend/static"), name="static")
 
 
-##Frontend Pages
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     data = openfile("home.md")
@@ -42,147 +91,13 @@ async def page(request: Request, page_name: str):
     return templates.TemplateResponse("page.html", {"request": request, "data": data})
 
 
-##Test Iris Viz
-@app.route("/")
-def root():
-    return page.render(resources=CDN.render())
+#########FRONTEND PAGES END#################
+############################################
 
 
-@app.route("/plot")
-def plot():
-    p = make_plot("petal_width", "petal_length")
-    return json.dumps(json_item(p, "myplot"))  # default theme applied
+############################################
+############TEST BOKEH VIZ##################
 
 
-@app.route("/plot2")
-def plot2():
-    p = make_plot("sepal_width", "sepal_length")
-    return json.dumps(json_item(p, theme=gray_theme))  # specific theme (gray) applied
-
-
-##Test Iris DB
-models.Base.metadata.create_all(bind=engine)
-
-
-@app.exception_handler(Exception)
-def validation_exception_handler(request, err):
-    base_error_message = f"Failed to execute: {request.method}: {request.url}"
-    return JSONResponse(status_code=400, content={"message": f"{base_error_message}. Detail: {err}"})
-
-
-@app.post("/items", tags=["Item"], response_model=schemas.Item, status_code=201)
-async def create_item(item_request: schemas.ItemCreate, db: Session = Depends(get_db)):
-    """
-    Create an Item and store it in the database
-    """
-
-    db_item = ItemRepo.fetch_by_name(db, name=item_request.name)
-    if db_item:
-        raise HTTPException(status_code=400, detail="Item already exists!")
-
-    return await ItemRepo.create(db=db, item=item_request)
-
-
-@app.get("/items", tags=["Item"], response_model=List[schemas.Item])
-def get_all_items(name: Optional[str] = None, db: Session = Depends(get_db)):
-    """
-    Get all the Items stored in database
-    """
-    if name:
-        items = []
-        db_item = ItemRepo.fetch_by_name(db, name)
-        items.append(db_item)
-        return items
-    else:
-        return ItemRepo.fetch_all(db)
-
-
-@app.get("/items/{item_id}", tags=["Item"], response_model=schemas.Item)
-def get_item(item_id: int, db: Session = Depends(get_db)):
-    """
-    Get the Item with the given ID provided by User stored in database
-    """
-    db_item = ItemRepo.fetch_by_id(db, item_id)
-    if db_item is None:
-        raise HTTPException(status_code=404, detail="Item not found with the given ID")
-    return db_item
-
-
-@app.delete("/items/{item_id}", tags=["Item"])
-async def delete_item(item_id: int, db: Session = Depends(get_db)):
-    """
-    Delete the Item with the given ID provided by User stored in database
-    """
-    db_item = ItemRepo.fetch_by_id(db, item_id)
-    if db_item is None:
-        raise HTTPException(status_code=404, detail="Item not found with the given ID")
-    await ItemRepo.delete(db, item_id)
-    return "Item deleted successfully!"
-
-
-@app.put("/items/{item_id}", tags=["Item"], response_model=schemas.Item)
-async def update_item(item_id: int, item_request: schemas.Item, db: Session = Depends(get_db)):
-    """
-    Update an Item stored in the database
-    """
-    db_item = ItemRepo.fetch_by_id(db, item_id)
-    if db_item:
-        update_item_encoded = jsonable_encoder(item_request)
-        db_item.name = update_item_encoded["name"]
-        db_item.price = update_item_encoded["price"]
-        db_item.description = update_item_encoded["description"]
-        db_item.store_id = update_item_encoded["store_id"]
-        return await ItemRepo.update(db=db, item_data=db_item)
-    else:
-        raise HTTPException(status_code=400, detail="Item not found with the given ID")
-
-
-@app.post("/stores", tags=["Store"], response_model=schemas.Store, status_code=201)
-async def create_store(store_request: schemas.StoreCreate, db: Session = Depends(get_db)):
-    """
-    Create a Store and save it in the database
-    """
-    db_store = StoreRepo.fetch_by_name(db, name=store_request.name)
-    print(db_store)
-    if db_store:
-        raise HTTPException(status_code=400, detail="Store already exists!")
-
-    return await StoreRepo.create(db=db, store=store_request)
-
-
-@app.get("/stores", tags=["Store"], response_model=List[schemas.Store])
-def get_all_stores(name: Optional[str] = None, db: Session = Depends(get_db)):
-    """
-    Get all the Stores stored in database
-    """
-    if name:
-        stores = []
-        db_store = StoreRepo.fetch_by_name(db, name)
-        print(db_store)
-        stores.append(db_store)
-        return stores
-    else:
-        return StoreRepo.fetch_all(db)
-
-
-@app.get("/stores/{store_id}", tags=["Store"], response_model=schemas.Store)
-def get_store(store_id: int, db: Session = Depends(get_db)):
-    """
-    Get the Store with the given ID provided by User stored in database
-    """
-    db_store = StoreRepo.fetch_by_id(db, store_id)
-    if db_store is None:
-        raise HTTPException(status_code=404, detail="Store not found with the given ID")
-    return db_store
-
-
-@app.delete("/stores/{store_id}", tags=["Store"])
-async def delete_store(store_id: int, db: Session = Depends(get_db)):
-    """
-    Delete the Item with the given ID provided by User stored in database
-    """
-    db_store = StoreRepo.fetch_by_id(db, store_id)
-    if db_store is None:
-        raise HTTPException(status_code=404, detail="Store not found with the given ID")
-    await StoreRepo.delete(db, store_id)
-    return "Store deleted successfully!"
+#############TEST BOKEH VIZ END#############
+############################################
