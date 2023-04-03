@@ -1,1 +1,7 @@
+bokeh
 fastapi
+uvicorn
+markdown
+jinja2
+pydantic
+sqlalchemy

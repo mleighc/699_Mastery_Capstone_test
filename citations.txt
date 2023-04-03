@@ -9,3 +9,18 @@ https://fastapi.tiangolo.com/tutorial/sql-databases/
 
 #Fast API web starter
 https://levelup.gitconnected.com/building-a-website-starter-with-fastapi-92d077092864
+
+#Embed Bokeh
+https://barrysunderland.com/blog/embedding-bokeh-plots.html#static-bokeh-as-a-static-file
+
+#SQLite Setup
+https://christophergs.com/tutorials/ultimate-fastapi-tutorial-pt-7-sqlalchemy-database-setup/
+
+#Bokeh User Guide
+https://docs.bokeh.org/en/latest/docs/user_guide.html
+
+#Bokeh json_item
+https://github.com/bokeh/bokeh/blob/3.1.0/examples/output/apis/json_item.py
+
+#SQLite Configuration tutorial
+https://dassum.medium.com/building-rest-apis-using-fastapi-sqlalchemy-uvicorn-8a163ccf3aa1
